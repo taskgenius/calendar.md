@@ -1,0 +1,17 @@
+{
+  "defaultView": "month",
+  "weekStart": 1,
+  "showCompleted": true,
+  "showEventCheckbox": true,
+  "moveOnComplete": true,
+  "completedSectionName": "Done",
+  "datePriority": [
+    "due",
+    "scheduled",
+    "start",
+    "created",
+    "done",
+    "cancelled"
+  ],
+  "recognizedDateFormat": "tasks"
+}
