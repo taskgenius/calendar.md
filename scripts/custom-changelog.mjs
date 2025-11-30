@@ -40,7 +40,18 @@ export function generateMergedChangelog(targetVersion, options = {}) {
       }
 
       if (stableTags.length === 0) {
-        return "HEAD~30";
+        // 没有标签，获取第一个提交作为起点
+        try {
+          const firstCommit = execSync("git rev-list --max-parents=0 HEAD", {
+            encoding: "utf8",
+          })
+            .trim()
+            .split("\n")[0];
+          return firstCommit;
+        } catch (e) {
+          // 如果连第一个提交都获取不到，返回空（将使用所有提交）
+          return null;
+        }
       }
 
       const sortedTags = stableTags.sort((a, b) => {
@@ -49,20 +60,26 @@ export function generateMergedChangelog(targetVersion, options = {}) {
 
       return sortedTags[0].tag;
     } catch (error) {
-      return "HEAD~30";
+      return null;
     }
   }
 
   const lastStableTag = getLastStableTag();
   console.log(
-    `📦 Generating changelog from ${lastStableTag} to ${targetVersion}`,
+    `📦 Generating changelog from ${lastStableTag || "initial commit"} to ${targetVersion}`,
   );
 
   // 获取所有提交
-  const rawCommits = execSync(
-    `git log ${lastStableTag}..HEAD --pretty=format:"%H|||%s|||%b|||%an|||%ae|||%ad" --no-merges`,
-    { encoding: "utf8" },
-  ).trim();
+  let rawCommits;
+  try {
+    const gitLogCmd = lastStableTag
+      ? `git log ${lastStableTag}..HEAD --pretty=format:"%H|||%s|||%b|||%an|||%ae|||%ad" --no-merges`
+      : `git log HEAD --pretty=format:"%H|||%s|||%b|||%an|||%ae|||%ad" --no-merges`;
+    rawCommits = execSync(gitLogCmd, { encoding: "utf8" }).trim();
+  } catch (e) {
+    console.log("⚠️  No commits found, creating empty changelog");
+    rawCommits = "";
+  }
 
   const commits = rawCommits ? rawCommits.split("\n").filter(Boolean) : [];
 

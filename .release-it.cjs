@@ -33,8 +33,19 @@ function getLastStableTag() {
     }
 
     if (stableTags.length === 0) {
-      console.log("No stable version tags found, using HEAD~30");
-      return "HEAD~30";
+      // 没有标签，获取第一个提交作为起点
+      try {
+        const firstCommit = execSync("git rev-list --max-parents=0 HEAD", {
+          encoding: "utf8",
+        })
+          .trim()
+          .split("\n")[0];
+        console.log("No stable version tags found, using first commit");
+        return firstCommit;
+      } catch (e) {
+        console.log("No commits found yet");
+        return null;
+      }
     }
 
     // 按照 semver 排序，从高到低
@@ -62,11 +73,8 @@ function getLastStableTag() {
 
     return latestStableTag.tag;
   } catch (error) {
-    console.warn(
-      "Warning: Could not determine last stable tag, using HEAD~30",
-      error.message,
-    );
-    return "HEAD~30";
+    console.warn("Warning: Could not determine last stable tag", error.message);
+    return null;
   }
 }
 

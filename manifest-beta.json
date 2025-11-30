@@ -1,7 +1,7 @@
 {
   "id": "calendar-md",
   "name": "Calendar.MD",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "minAppVersion": "1.0.0",
   "description": "View markdown-backend tasks in a calendar view. Supports month, week, and day views with drag-and-drop rescheduling.",
   "author": "boninall",
