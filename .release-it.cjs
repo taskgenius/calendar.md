@@ -118,7 +118,7 @@ module.exports = {
       "dist/main.js",
       "dist/manifest.json",
       "dist/styles.css",
-      "dist/task-genius-${version}.zip",
+      "dist/calendar-md-${version}.zip",
     ],
     proxy: process.env.HTTPS_PROXY,
     releaseName: "${version}",

@@ -138,7 +138,7 @@ export function generateMergedChangelog(targetVersion, options = {}) {
 
   // 生成 changelog 内容
   const date = new Date().toISOString().split("T")[0];
-  const compareUrl = `https://github.com/Quorafind/Obsidian-Task-Genius/compare/${lastStableTag}...${targetVersion}`;
+  const compareUrl = `https://github.com/taskgenius/calendar.md/compare/${lastStableTag}...${targetVersion}`;
 
   let newChangelog = `## [${targetVersion}](${compareUrl}) (${date})\n\n`;
 
@@ -160,7 +160,7 @@ export function generateMergedChangelog(targetVersion, options = {}) {
     if (sectionCommits && sectionCommits.length > 0) {
       newChangelog += `### ${section}\n\n`;
       sectionCommits.forEach((commit) => {
-        const commitUrl = `https://github.com/Quorafind/Obsidian-Task-Genius/commit/${commit.hash}`;
+        const commitUrl = `https://github.com/taskgenius/calendar.md/commit/${commit.hash}`;
         const scopePrefix = commit.scope ? `**${commit.scope}:** ` : "";
         newChangelog += `* ${scopePrefix}${commit.description} ([${commit.hash}](${commitUrl}))\n`;
 
