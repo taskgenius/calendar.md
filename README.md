@@ -142,16 +142,16 @@ calendar-plugin: basic
 
 ```bash
 # Clone the repository
-git clone https://github.com/mgmeyers/calendar-md-plugin.git
+git clone https://github.com/taskgenius/calendar.md.git
 
 # Install dependencies
-npm install
+pnpm install
 
 # Build for development (with watch mode)
-npm run dev
+pnpm run dev
 
 # Build for production
-npm run build
+pnpm run build
 ```
 
 ## Credits
