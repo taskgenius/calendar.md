@@ -1,6 +1,8 @@
-# Calendar Plugin for Obsidian
+# Calendar.MD
 
 View your markdown tasks in a beautiful calendar interface. This plugin supports month, week, and day views with drag-and-drop rescheduling.
+
+Sub-set of [Task Genius Plugin](https://github.com/taskgenius/taskgenius-plugin)
 
 ## Features
 
@@ -25,7 +27,7 @@ View your markdown tasks in a beautiful calendar interface. This plugin supports
 ### Manual Installation
 
 1. Download the latest release from the releases page
-2. Extract the files to your vault's `.obsidian/plugins/calendar-md-plugin/` folder
+2. Extract the files to your vault's `.obsidian/plugins/calendar-md/` folder
 3. Reload Obsidian
 4. Enable the plugin in Settings → Community Plugins
 
