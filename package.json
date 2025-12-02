@@ -1,6 +1,6 @@
 {
   "name": "calendar-md",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "View markdown-backend tasks in a calendar view for Obsidian",
   "main": "main.js",
   "scripts": {
