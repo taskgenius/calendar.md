@@ -314,10 +314,13 @@ export class CalendarView extends TextFileView {
   private dateDisplayEl: HTMLElement | null = null;
   private sectionMenuBtnEl: HTMLElement | null = null;
   private activePopover: TaskPopover | null = null;
+  private eventElementMap: Map<string, HTMLElement> = new Map();
   private calendarMainContainer: HTMLElement | null = null;
   private emptyStateContainer: HTMLElement | null = null;
   private currentView: ViewType = "month";
   private currentDate: Date = new Date();
+  private lastPointerPosition: { x: number; y: number } | null = null;
+  private dragThresholdPatched: boolean = false;
 
   /** Responsive view switcher container (visibility controlled by CSS container queries) */
   private viewSwitcherContainer: HTMLElement | null = null;
@@ -385,6 +388,7 @@ export class CalendarView extends TextFileView {
       this.activePopover?.close();
       this.activePopover = null;
       this.currentEvents.clear();
+      this.eventElementMap.clear();
       this.sections.clear();
       Object.values(this.actionButtons).forEach((b) => b.remove());
       this.actionButtons = {};
@@ -407,7 +411,16 @@ export class CalendarView extends TextFileView {
     // We handle cleanup in setViewData with clear=true
   }
 
+  /**
+   * Records the last pointer position for popover anchoring when the library does not provide the event object.
+   */
+  private recordPointerPosition = (event: MouseEvent | PointerEvent): void => {
+    this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+  };
+
   async onOpen(): Promise<void> {
+    document.addEventListener("pointerdown", this.recordPointerPosition, true);
+
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
     container.addClass("calendar-view-workspace");
@@ -1025,6 +1038,63 @@ export class CalendarView extends TextFileView {
       // Custom event rendering for checkbox display
       onRenderEvent: (ctx) => this.handleRenderEvent(ctx),
     });
+
+    this.patchDragController();
+  }
+
+  /**
+   * Adds a small drag threshold to avoid triggering drag mode on simple clicks.
+   */
+  private patchDragController(): void {
+    if (!this.calendar || this.dragThresholdPatched) return;
+
+    const dragController = (this.calendar as any).dragController;
+    if (!dragController || typeof dragController.startDrag !== "function")
+      return;
+
+    const originalStartDrag = dragController.startDrag.bind(dragController);
+    const thresholdPx = 4;
+
+    dragController.startDrag = (stateData: any) => {
+      let started = false;
+
+      const cleanup = () => {
+        document.removeEventListener("mousemove", onMove, true);
+        document.removeEventListener("mouseup", onUp, true);
+      };
+
+      const beginDrag = (evt?: MouseEvent) => {
+        started = true;
+        cleanup();
+        originalStartDrag(stateData);
+        if (evt && typeof dragController.boundOnMove === "function") {
+          dragController.boundOnMove(evt);
+        }
+      };
+
+      const onMove = (moveEvent: MouseEvent) => {
+        const dx = Math.abs(moveEvent.clientX - stateData.startX);
+        const dy = Math.abs(moveEvent.clientY - stateData.startY);
+        if (dx > thresholdPx || dy > thresholdPx) {
+          beginDrag(moveEvent);
+        }
+      };
+
+      const onUp = () => {
+        cleanup();
+        if (!started) {
+          dragController.state = null;
+          if (typeof dragController.removeProxy === "function") {
+            dragController.removeProxy();
+          }
+        }
+      };
+
+      document.addEventListener("mousemove", onMove, true);
+      document.addEventListener("mouseup", onUp, true);
+    };
+
+    this.dragThresholdPatched = true;
   }
 
   /**
@@ -1038,6 +1108,10 @@ export class CalendarView extends TextFileView {
   }): void {
     // Call default render for the rest of the content
     ctx.defaultRender();
+    this.eventElementMap.set(ctx.event.id, ctx.el);
+    ctx.el.addEventListener("pointerdown", () => {
+      this.eventElementMap.set(ctx.event.id, ctx.el);
+    });
 
     const { showEventCheckbox } = this.plugin.settings;
     const task = this.currentEvents.get(ctx.event.id);
@@ -1323,6 +1397,8 @@ export class CalendarView extends TextFileView {
   private updateCalendarEvents(): void {
     if (!this.calendar) return;
 
+    this.eventElementMap.clear();
+
     const activeSection = this.sections.get(this.activeSectionId);
     const tasksToShow = activeSection?.tasks ?? [];
 
@@ -1560,10 +1636,38 @@ export class CalendarView extends TextFileView {
       this.activePopover = null;
     }
 
-    // Determine click position (fallback to center of screen if no event)
-    const position = jsEvent
+    const clickPosition = jsEvent
       ? { x: jsEvent.clientX, y: jsEvent.clientY }
-      : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      : this.lastPointerPosition
+        ? {
+            x: this.lastPointerPosition.x,
+            y: this.lastPointerPosition.y,
+          }
+        : null;
+
+    const anchorElFromEvent =
+      jsEvent?.currentTarget instanceof HTMLElement
+        ? jsEvent.currentTarget
+        : null;
+    const anchorEl = anchorElFromEvent ??
+      this.eventElementMap.get(event.id) ??
+      null;
+    const anchorPosition =
+      anchorEl !== null
+        ? (() => {
+            const rect = anchorEl.getBoundingClientRect();
+            return {
+              x: rect.left + rect.width / 2,
+              y: rect.top + rect.height + 8,
+            };
+          })()
+        : null;
+
+    // Determine click position (fallback to event anchor or center of screen if unavailable)
+    const position =
+      clickPosition ??
+      anchorPosition ??
+      { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 
     // Open new popover
     this.activePopover = new TaskPopover(
@@ -1629,28 +1733,90 @@ export class CalendarView extends TextFileView {
 
       // Build date string preserving original format
       let dateMetadata = "";
+      const isCompletionChange = updates.completed !== undefined;
+      const isCompleting = updates.completed === true && !task.completed;
+      const isUncompleting = updates.completed === false && task.completed;
+      const dateFormat = this.plugin.settings.recognizedDateFormat;
+
       if (task.allDates.length > 0) {
-        // Preserve all original dates, updating the primary one if needed
-        const newPrimaryDate = updates.date ?? task.date;
+        // Clone to avoid mutating original; restore time if needed
+        const newPrimaryDate = updates.date
+          ? updates.date.clone()
+          : task.date.clone();
+
+        // Restore original time if task had time but new date is midnight
+        // (implies date-only edit from popover's date input)
         const primaryDateField = task.allDates.find(
           (d) => d.type === task.dateType,
         );
+        if (
+          primaryDateField?.hasTime &&
+          newPrimaryDate.hours() === 0 &&
+          newPrimaryDate.minutes() === 0
+        ) {
+          newPrimaryDate.hour(task.date.hour()).minute(task.date.minute());
+        }
 
         for (const dateField of task.allDates) {
-          if (dateField === primaryDateField) {
-            // Update the primary date
+          // Handle Done date field specially during completion changes
+          if (dateField.type === DateFieldType.Done) {
+            if (isUncompleting) {
+              // Remove completion date when uncompleting
+              continue;
+            }
+            if (isCompleting) {
+              // Skip old done date; we'll add a fresh one below
+              continue;
+            }
+            // Keep existing done date if not changing completion status
+            dateMetadata += " " + dateField.raw;
+          } else if (dateField === primaryDateField) {
+            // Update the primary date, preserving time if original had it
+            const includeTime =
+              dateField.hasTime || hasTimeComponent(newPrimaryDate.toDate());
             dateMetadata +=
               " " +
-              formatDate(dateField.type, newPrimaryDate, dateField.format);
+              formatDate(
+                dateField.type,
+                newPrimaryDate,
+                dateField.format,
+                includeTime,
+              );
           } else {
             // Keep other dates as-is
             dateMetadata += " " + dateField.raw;
           }
         }
+
+        // Add completion date if newly completed (tasks/dataview formats)
+        if (
+          isCompleting &&
+          (dateFormat === "tasks" || dateFormat === "dataview")
+        ) {
+          const doneDate = formatDate(
+            DateFieldType.Done,
+            moment(),
+            dateFormat === "tasks" ? "tasks" : "dataview-bracket",
+          );
+          dateMetadata += " " + doneDate;
+        }
       } else {
         // Fallback: use emoji format for due date
         const dateStr = (updates.date ?? task.date).format("YYYY-MM-DD");
         dateMetadata = ` 📅 ${dateStr}`;
+
+        // Add completion date if newly completed
+        if (
+          isCompleting &&
+          (dateFormat === "tasks" || dateFormat === "dataview")
+        ) {
+          const doneDate = formatDate(
+            DateFieldType.Done,
+            moment(),
+            dateFormat === "tasks" ? "tasks" : "dataview-bracket",
+          );
+          dateMetadata += " " + doneDate;
+        }
       }
 
       const newLine = `${indentation}- [${checkMark}] ${title}${dateMetadata}`;
@@ -2270,6 +2436,12 @@ export class CalendarView extends TextFileView {
   }
 
   async onClose(): Promise<void> {
+    document.removeEventListener(
+      "pointerdown",
+      this.recordPointerPosition,
+      true,
+    );
+
     // Close any open popover
     if (this.activePopover) {
       this.activePopover.close();
@@ -2281,7 +2453,9 @@ export class CalendarView extends TextFileView {
       this.calendar = null;
     }
 
+    this.dragThresholdPatched = false;
     this.currentEvents.clear();
+    this.eventElementMap.clear();
     this.sections.clear();
     this.actionButtons = {};
   }
