@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 
+## [0.2.0](https://github.com/taskgenius/calendar.md/compare/0.1.6...0.2.0) (2025-12-06)
+
+### Features
+
+* **colors:** add event color customization system ([f76ae61](https://github.com/taskgenius/calendar.md/commit/f76ae61))
+
 ## [0.1.6](https://github.com/taskgenius/calendar.md/compare/0.1.5...0.1.6) (2025-12-02)
 
 ### Bug Fixes
