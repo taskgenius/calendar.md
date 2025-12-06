@@ -1,10 +1,26 @@
-import { Plugin, TFile, TFolder, MarkdownView, WorkspaceLeaf, ViewState, debounce } from 'obsidian';
-import { around } from 'monkey-around';
+import {
+  Plugin,
+  TFile,
+  TFolder,
+  MarkdownView,
+  WorkspaceLeaf,
+  ViewState,
+  debounce,
+} from "obsidian";
+import { around } from "monkey-around";
 
-import { CalendarView, VIEW_TYPE_CALENDAR, FRONTMATTER_KEY, BASIC_FRONTMATTER, hasCalendarFrontmatter } from './CalendarView';
-import { CalendarSettings, DEFAULT_SETTINGS, CalendarSettingsTab } from './Settings';
-
-
+import {
+  CalendarView,
+  VIEW_TYPE_CALENDAR,
+  FRONTMATTER_KEY,
+  BASIC_FRONTMATTER,
+  hasCalendarFrontmatter,
+} from "./CalendarView";
+import {
+  CalendarSettings,
+  createDefaultSettings,
+  CalendarSettingsTab,
+} from "./Settings";
 
 /**
  * Calendar MD Plugin for Obsidian
@@ -13,7 +29,7 @@ import { CalendarSettings, DEFAULT_SETTINGS, CalendarSettingsTab } from './Setti
  * Supports month, week, and day views with drag-and-drop rescheduling.
  */
 export default class CalendarPlugin extends Plugin {
-  settings: CalendarSettings = DEFAULT_SETTINGS;
+  settings: CalendarSettings = createDefaultSettings();
 
   /** Tracks view mode preference per file/leaf */
   calendarFileModes: Record<string, string> = {};
@@ -25,7 +41,10 @@ export default class CalendarPlugin extends Plugin {
     await this.loadSettings();
 
     // Register the calendar view
-    this.registerView(VIEW_TYPE_CALENDAR, (leaf) => new CalendarView(leaf, this));
+    this.registerView(
+      VIEW_TYPE_CALENDAR,
+      (leaf) => new CalendarView(leaf, this),
+    );
 
     // Register monkey patches for auto-detection
     this.registerMonkeyPatches();
@@ -34,7 +53,7 @@ export default class CalendarPlugin extends Plugin {
     this.addSettingTab(new CalendarSettingsTab(this.app, this));
 
     // Add ribbon icon
-    this.addRibbonIcon('calendar', 'Create new calendar', () => {
+    this.addRibbonIcon("calendar", "Create new calendar", () => {
       this.newCalendar();
     });
 
@@ -56,15 +75,15 @@ export default class CalendarPlugin extends Plugin {
   private registerCommands(): void {
     // Create new calendar
     this.addCommand({
-      id: 'create-new-calendar',
-      name: 'Create new calendar',
+      id: "create-new-calendar",
+      name: "Create new calendar",
       callback: () => this.newCalendar(),
     });
 
     // Open current file as calendar
     this.addCommand({
-      id: 'open-as-calendar',
-      name: 'Open current file as Calendar',
+      id: "open-as-calendar",
+      name: "Open current file as Calendar",
       checkCallback: (checking: boolean) => {
         const file = this.app.workspace.getActiveFile();
         if (checking) {
@@ -72,7 +91,8 @@ export default class CalendarPlugin extends Plugin {
         }
         if (file) {
           const leaf = this.app.workspace.getLeaf(false);
-          this.calendarFileModes[(leaf as any).id || file.path] = VIEW_TYPE_CALENDAR;
+          this.calendarFileModes[(leaf as any).id || file.path] =
+            VIEW_TYPE_CALENDAR;
           this.setCalendarView(leaf);
         }
       },
@@ -80,15 +100,17 @@ export default class CalendarPlugin extends Plugin {
 
     // Open current calendar as markdown
     this.addCommand({
-      id: 'open-as-markdown',
-      name: 'Open current calendar as Markdown',
+      id: "open-as-markdown",
+      name: "Open current calendar as Markdown",
       checkCallback: (checking: boolean) => {
         const view = this.app.workspace.getActiveViewOfType(CalendarView);
         if (checking) {
           return !!view;
         }
         if (view) {
-          this.calendarFileModes[(view.leaf as any).id || view.file?.path || ''] = 'markdown';
+          this.calendarFileModes[
+            (view.leaf as any).id || view.file?.path || ""
+          ] = "markdown";
           this.setMarkdownView(view.leaf);
         }
       },
@@ -96,24 +118,30 @@ export default class CalendarPlugin extends Plugin {
 
     // Toggle between markdown and calendar view
     this.addCommand({
-      id: 'toggle-calendar-view',
-      name: 'Toggle between Calendar and Markdown view',
+      id: "toggle-calendar-view",
+      name: "Toggle between Calendar and Markdown view",
       checkCallback: (checking: boolean) => {
         const activeFile = this.app.workspace.getActiveFile();
         if (!activeFile) return false;
 
-        const calendarView = this.app.workspace.getActiveViewOfType(CalendarView);
-        const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        const calendarView =
+          this.app.workspace.getActiveViewOfType(CalendarView);
+        const markdownView =
+          this.app.workspace.getActiveViewOfType(MarkdownView);
 
         if (checking) {
           return !!(calendarView || markdownView);
         }
 
         if (calendarView) {
-          this.calendarFileModes[(calendarView.leaf as any).id || activeFile.path] = 'markdown';
+          this.calendarFileModes[
+            (calendarView.leaf as any).id || activeFile.path
+          ] = "markdown";
           this.setMarkdownView(calendarView.leaf);
         } else if (markdownView) {
-          this.calendarFileModes[(markdownView.leaf as any).id || activeFile.path] = VIEW_TYPE_CALENDAR;
+          this.calendarFileModes[
+            (markdownView.leaf as any).id || activeFile.path
+          ] = VIEW_TYPE_CALENDAR;
           this.setCalendarView(markdownView.leaf);
         }
       },
@@ -121,53 +149,53 @@ export default class CalendarPlugin extends Plugin {
 
     // Switch to month view
     this.addCommand({
-      id: 'calendar-month-view',
-      name: 'Switch to Month view',
+      id: "calendar-month-view",
+      name: "Switch to Month view",
       checkCallback: (checking: boolean) => {
         const view = this.app.workspace.getActiveViewOfType(CalendarView);
         if (checking) {
           return !!view;
         }
         if (view && view.calendar) {
-          view.calendar.setView('month');
+          view.calendar.setView("month");
         }
       },
     });
 
     // Switch to week view
     this.addCommand({
-      id: 'calendar-week-view',
-      name: 'Switch to Week view',
+      id: "calendar-week-view",
+      name: "Switch to Week view",
       checkCallback: (checking: boolean) => {
         const view = this.app.workspace.getActiveViewOfType(CalendarView);
         if (checking) {
           return !!view;
         }
         if (view && view.calendar) {
-          view.calendar.setView('week');
+          view.calendar.setView("week");
         }
       },
     });
 
     // Switch to day view
     this.addCommand({
-      id: 'calendar-day-view',
-      name: 'Switch to Day view',
+      id: "calendar-day-view",
+      name: "Switch to Day view",
       checkCallback: (checking: boolean) => {
         const view = this.app.workspace.getActiveViewOfType(CalendarView);
         if (checking) {
           return !!view;
         }
         if (view && view.calendar) {
-          view.calendar.setView('day');
+          view.calendar.setView("day");
         }
       },
     });
 
     // Navigate to today
     this.addCommand({
-      id: 'calendar-today',
-      name: 'Go to Today',
+      id: "calendar-today",
+      name: "Go to Today",
       checkCallback: (checking: boolean) => {
         const view = this.app.workspace.getActiveViewOfType(CalendarView);
         if (checking) {
@@ -185,14 +213,14 @@ export default class CalendarPlugin extends Plugin {
    */
   private registerFileMenu(): void {
     this.registerEvent(
-      this.app.workspace.on('file-menu', (menu, file, source, leaf) => {
+      this.app.workspace.on("file-menu", (menu, file, source, leaf) => {
         if (file instanceof TFolder) {
           // Add "New calendar" option for folders
           menu.addItem((item) => {
             item
-              .setTitle('New calendar')
-              .setIcon('calendar')
-              .setSection('action-primary')
+              .setTitle("New calendar")
+              .setIcon("calendar")
+              .setSection("action-primary")
               .onClick(() => this.newCalendar(file));
           });
           return;
@@ -202,18 +230,20 @@ export default class CalendarPlugin extends Plugin {
 
         const isCalendarView = leaf?.view instanceof CalendarView;
         const cache = this.app.metadataCache.getFileCache(file);
-        const hasCalendarFrontmatter = cache?.frontmatter && cache.frontmatter[FRONTMATTER_KEY];
+        const hasCalendarFrontmatter =
+          cache?.frontmatter && cache.frontmatter[FRONTMATTER_KEY];
 
         if (isCalendarView) {
           // Show "Open as Markdown" option
           menu.addItem((item) => {
             item
-              .setTitle('Open as Markdown')
-              .setIcon('document')
-              .setSection('pane')
+              .setTitle("Open as Markdown")
+              .setIcon("document")
+              .setSection("pane")
               .onClick(() => {
                 if (leaf) {
-                  this.calendarFileModes[(leaf as any).id || file.path] = 'markdown';
+                  this.calendarFileModes[(leaf as any).id || file.path] =
+                    "markdown";
                   this.setMarkdownView(leaf);
                 }
               });
@@ -222,18 +252,19 @@ export default class CalendarPlugin extends Plugin {
           // Show "Open as Calendar" option
           menu.addItem((item) => {
             item
-              .setTitle('Open as Calendar')
-              .setIcon('calendar')
-              .setSection('pane')
+              .setTitle("Open as Calendar")
+              .setIcon("calendar")
+              .setSection("pane")
               .onClick(() => {
                 if (leaf) {
-                  this.calendarFileModes[(leaf as any).id || file.path] = VIEW_TYPE_CALENDAR;
+                  this.calendarFileModes[(leaf as any).id || file.path] =
+                    VIEW_TYPE_CALENDAR;
                   this.setCalendarView(leaf);
                 }
               });
           });
         }
-      })
+      }),
     );
   }
 
@@ -252,15 +283,15 @@ export default class CalendarPlugin extends Plugin {
         });
       },
       500,
-      true
+      true,
     );
 
     this.registerEvent(
-      this.app.vault.on('modify', (file) => {
+      this.app.vault.on("modify", (file) => {
         if (file instanceof TFile) {
           notifyFileChange(file);
         }
-      })
+      }),
     );
   }
 
@@ -277,7 +308,10 @@ export default class CalendarPlugin extends Plugin {
         detach(next) {
           return function (this: WorkspaceLeaf) {
             const state = this.view?.getState();
-            if (state?.file && self.calendarFileModes[(this as any).id || state.file]) {
+            if (
+              state?.file &&
+              self.calendarFileModes[(this as any).id || state.file]
+            ) {
               delete self.calendarFileModes[(this as any).id || state.file];
             }
             return next.apply(this);
@@ -286,18 +320,22 @@ export default class CalendarPlugin extends Plugin {
 
         // Intercept view state changes to auto-switch to calendar view
         setViewState(next) {
-          return function (this: WorkspaceLeaf, state: ViewState, eState?: any) {
+          return function (
+            this: WorkspaceLeaf,
+            state: ViewState,
+            eState?: any,
+          ) {
             // Check if we should intervene
             if (
               self._loaded &&
-              state.type === 'markdown' &&
+              state.type === "markdown" &&
               state.state?.file
             ) {
               const filePath = state.state.file as string;
               const fileId = (this as any).id || filePath;
 
               // If explicitly set to markdown by user action, skip
-              if (self.calendarFileModes[fileId] === 'markdown') {
+              if (self.calendarFileModes[fileId] === "markdown") {
                 return next.call(this, state, eState);
               }
 
@@ -320,7 +358,7 @@ export default class CalendarPlugin extends Plugin {
             return next.call(this, state, eState);
           };
         },
-      })
+      }),
     );
   }
 
@@ -331,12 +369,12 @@ export default class CalendarPlugin extends Plugin {
     const targetFolder = folder
       ? folder
       : this.app.fileManager.getNewFileParent(
-          this.app.workspace.getActiveFile()?.path || ''
+          this.app.workspace.getActiveFile()?.path || "",
         );
 
     try {
       // Generate unique filename
-      let filename = 'Untitled Calendar';
+      let filename = "Untitled Calendar";
       let path = `${targetFolder.path}/${filename}.md`;
       let counter = 1;
 
@@ -351,14 +389,15 @@ export default class CalendarPlugin extends Plugin {
       // Open directly in calendar view using setViewState
       // This bypasses the metadata cache race condition that occurs with openFile
       const leaf = this.app.workspace.getLeaf(false);
-      this.calendarFileModes[(leaf as any).id || file.path] = VIEW_TYPE_CALENDAR;
+      this.calendarFileModes[(leaf as any).id || file.path] =
+        VIEW_TYPE_CALENDAR;
 
       await leaf.setViewState({
         type: VIEW_TYPE_CALENDAR,
         state: { file: file.path },
       });
     } catch (error) {
-      console.error('CalendarPlugin: Error creating calendar:', error);
+      console.error("CalendarPlugin: Error creating calendar:", error);
     }
   }
 
@@ -377,13 +416,52 @@ export default class CalendarPlugin extends Plugin {
    */
   async setMarkdownView(leaf: WorkspaceLeaf): Promise<void> {
     await leaf.setViewState({
-      type: 'markdown',
+      type: "markdown",
       state: leaf.view.getState(),
     });
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const savedData = await this.loadData();
+    const defaults = createDefaultSettings();
+
+    // Deep merge saved data with defaults to ensure all nested properties exist
+    this.settings = {
+      ...defaults,
+      ...savedData,
+      // Deep merge colors to preserve nested structure
+      colors: {
+        ...defaults.colors,
+        ...(savedData?.colors || {}),
+        // Ensure defaultEventColor has both light and dark
+        defaultEventColor: {
+          ...defaults.colors.defaultEventColor,
+          ...(savedData?.colors?.defaultEventColor || {}),
+        },
+        // Deep copy arrays to prevent mutation
+        colorRules: savedData?.colors?.colorRules
+          ? savedData.colors.colorRules.map((rule: any) => ({
+              ...rule,
+              color: { ...rule.color },
+            }))
+          : [],
+        // Deep copy calendarSources
+        calendarSources: savedData?.colors?.calendarSources
+          ? Object.fromEntries(
+              Object.entries(savedData.colors.calendarSources).map(
+                ([k, v]: [string, any]) => [
+                  k,
+                  { ...v, color: v.color ? { ...v.color } : undefined },
+                ],
+              ),
+            )
+          : {},
+      },
+      // Ensure datePriority is a fresh array
+      datePriority: savedData?.datePriority
+        ? [...savedData.datePriority]
+        : [...defaults.datePriority],
+    };
   }
 
   async saveSettings(): Promise<void> {

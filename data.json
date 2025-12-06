@@ -13,5 +13,46 @@
     "done",
     "cancelled"
   ],
-  "recognizedDateFormat": "tasks"
+  "recognizedDateFormat": "tasks",
+  "colors": {
+    "defaultEventColor": {
+      "light": "#6366f1",
+      "dark": "#818cf8"
+    },
+    "colorRules": [
+      {
+        "id": "1764983205988",
+        "enabled": true,
+        "name": "New Rule",
+        "conditionType": "section_is",
+        "color": {
+          "light": "#ef4444",
+          "dark": "#f87171"
+        },
+        "conditionValue": "Test"
+      }
+    ],
+    "calendarSources": {
+      "Thino/Untitled Calendar.md": {
+        "color": {
+          "light": "#df5353",
+          "dark": "#d04343"
+        },
+        "sectionColors": {
+          "My Calendar": {
+            "light": "#ddb0b0",
+            "dark": "#ae6f6f"
+          },
+          "Test": {
+            "light": "#c39292",
+            "dark": "#1a4cc1"
+          },
+          "Done": {
+            "light": "#dbc7c7",
+            "dark": "#46c436"
+          }
+        }
+      }
+    }
+  }
 }

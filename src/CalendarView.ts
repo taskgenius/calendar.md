@@ -10,6 +10,7 @@ import {
   TextComponent,
   ButtonComponent,
   ToggleComponent,
+  DropdownComponent,
   setIcon,
   Menu,
   moment,
@@ -30,6 +31,8 @@ import {
   type ParsedDateField,
   type DateFormatType,
 } from "./parsers/dateParser";
+import { ColorService } from "./services/ColorService";
+import { CalendarConfigModal } from "./components/CalendarConfigModal";
 
 export const VIEW_TYPE_CALENDAR = "calendar-md-view";
 
@@ -96,6 +99,9 @@ interface CalendarSection {
 
 /** Default section ID for tasks without heading */
 const DEFAULT_SECTION_ID = "Default";
+
+/** Special section ID for showing all sections combined */
+const ALL_SECTIONS_ID = "__ALL__";
 
 /**
  * Checks if content has the calendar frontmatter key
@@ -308,7 +314,7 @@ export class CalendarView extends TextFileView {
   /** Map of sections parsed from the document */
   private sections: Map<string, CalendarSection> = new Map();
   /** Currently active/displayed section */
-  private activeSectionId: string = DEFAULT_SECTION_ID;
+  private activeSectionId: string = ALL_SECTIONS_ID;
 
   private toolbarEl: HTMLElement | null = null;
   private dateDisplayEl: HTMLElement | null = null;
@@ -327,6 +333,10 @@ export class CalendarView extends TextFileView {
 
   /** Header action buttons */
   private actionButtons: Record<string, HTMLElement> = {};
+
+  /** Event reference for theme change listener (for cleanup) */
+  private themeChangeRef: ReturnType<typeof this.app.workspace.on> | null =
+    null;
 
   /**
    * Regex pattern to match task checkbox prefix.
@@ -419,7 +429,18 @@ export class CalendarView extends TextFileView {
   };
 
   async onOpen(): Promise<void> {
-    document.addEventListener("pointerdown", this.recordPointerPosition, true);
+    this.registerDomEvent(
+      document,
+      "pointerdown",
+      this.recordPointerPosition,
+      true,
+    );
+
+    // Listen for theme changes to update event colors
+    this.themeChangeRef = this.app.workspace.on("css-change", () => {
+      this.updateCalendarEvents();
+    });
+    this.registerEvent(this.themeChangeRef);
 
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
@@ -555,8 +576,8 @@ export class CalendarView extends TextFileView {
       await this.createInitialCalendar(name);
     };
 
-    button.addEventListener("click", handleSubmit);
-    input.addEventListener("keydown", (e) => {
+    this.registerDomEvent(button, "click", handleSubmit);
+    this.registerDomEvent(input, "keydown", (e) => {
       if (e.key === "Enter") handleSubmit();
     });
   }
@@ -636,7 +657,7 @@ export class CalendarView extends TextFileView {
       attr: { "aria-label": "Select calendar" },
     });
     this.updateSectionMenuButton();
-    this.sectionMenuBtnEl.addEventListener("click", (evt) => {
+    this.registerDomEvent(this.sectionMenuBtnEl, "click", (evt) => {
       this.showSectionMenu(evt);
     });
 
@@ -653,6 +674,24 @@ export class CalendarView extends TextFileView {
       this.calendar?.today();
       this.currentDate = new Date();
       this.updateDateDisplay();
+    });
+
+    // Color settings button
+    this.createButton(navGroup, "", "palette", () => {
+      if (this.file) {
+        // Collect section info for the modal
+        const sectionInfos = Array.from(this.sections.values()).map((s) => ({
+          id: s.id,
+          name: s.name,
+        }));
+        new CalendarConfigModal(
+          this.app,
+          this.plugin,
+          this.file,
+          () => this.updateCalendarEvents(),
+          sectionInfos,
+        ).open();
+      }
     });
 
     this.createButton(navGroup, "", "chevron-right", () => {
@@ -703,23 +742,15 @@ export class CalendarView extends TextFileView {
   ): void {
     if (!this.viewSwitcherContainer) return;
 
-    const select = this.viewSwitcherContainer.createEl("select", {
-      cls: "calendar-view-select",
-    });
+    const dropdown = new DropdownComponent(this.viewSwitcherContainer);
+    dropdown.selectEl.addClass("calendar-view-select");
 
     views.forEach((view) => {
-      const opt = select.createEl("option", {
-        value: view.value,
-        text: view.label,
-      });
-      if (this.currentView === view.value) {
-        opt.selected = true;
-      }
+      dropdown.addOption(view.value, view.label);
     });
 
-    select.addEventListener("change", (e) => {
-      const value = (e.target as HTMLSelectElement).value as ViewType;
-      this.setCurrentView(value);
+    dropdown.setValue(this.currentView).onChange((value) => {
+      this.setCurrentView(value as ViewType);
     });
   }
 
@@ -742,7 +773,7 @@ export class CalendarView extends TextFileView {
         text: view.label,
       });
 
-      tab.addEventListener("click", () => {
+      this.registerDomEvent(tab, "click", () => {
         if (this.currentView !== view.value) {
           this.setCurrentView(view.value);
         }
@@ -829,7 +860,7 @@ export class CalendarView extends TextFileView {
       btn.createSpan({ cls: "calendar-btn-text", text });
     }
 
-    btn.addEventListener("click", onClick);
+    this.registerDomEvent(btn, "click", onClick);
     return btn;
   }
 
@@ -857,8 +888,11 @@ export class CalendarView extends TextFileView {
     const defaultSection = this.sections.get(DEFAULT_SECTION_ID);
     const defaultHasTasks = defaultSection && defaultSection.tasks.length > 0;
 
-    // Validate active section still exists
-    if (!this.sections.has(this.activeSectionId)) {
+    // Validate active section still exists (but allow ALL_SECTIONS_ID)
+    if (
+      this.activeSectionId !== ALL_SECTIONS_ID &&
+      !this.sections.has(this.activeSectionId)
+    ) {
       this.activeSectionId = DEFAULT_SECTION_ID;
     }
 
@@ -874,8 +908,14 @@ export class CalendarView extends TextFileView {
 
     if (!this.sectionMenuBtnEl) return;
 
-    const activeSection = this.sections.get(this.activeSectionId);
-    const displayName = activeSection?.name ?? "Default";
+    // Determine display name
+    let displayName: string;
+    if (this.activeSectionId === ALL_SECTIONS_ID) {
+      displayName = "All Calendars";
+    } else {
+      const activeSection = this.sections.get(this.activeSectionId);
+      displayName = activeSection?.name ?? "Default";
+    }
 
     this.sectionMenuBtnEl.empty();
     this.sectionMenuBtnEl.createSpan({
@@ -918,6 +958,23 @@ export class CalendarView extends TextFileView {
    * Default section is hidden when it's the only section.
    */
   private buildSectionMenu(menu: Menu): void {
+    // Add "All" option at the top (only if there are multiple sections)
+    if (this.sections.size > 1) {
+      const isAllActive = this.activeSectionId === ALL_SECTIONS_ID;
+      menu.addItem((item) => {
+        item
+          .setTitle("All Calendars")
+          .setIcon("layers")
+          .setChecked(isAllActive)
+          .onClick(() => {
+            this.activeSectionId = ALL_SECTIONS_ID;
+            this.updateSectionMenuButton();
+            this.updateCalendarEvents();
+          });
+      });
+      menu.addSeparator();
+    }
+
     // Group sections by parent
     const level1Sections: CalendarSection[] = [];
     const childrenByParent: Map<string, CalendarSection[]> = new Map();
@@ -952,13 +1009,18 @@ export class CalendarView extends TextFileView {
     level1Sections.forEach((section) => {
       const children = childrenByParent.get(section.id);
       const isActive = this.activeSectionId === section.id;
+      // Check if this is the "Done" section (completed tasks section)
+      const isDoneSection =
+        section.name === this.plugin.settings.completedSectionName;
 
       if (children && children.length > 0) {
         // Has children - create submenu
         menu.addItem((item) => {
           item
             .setTitle(section.name)
-            .setIcon(isActive ? "checkmark" : "")
+            .setIcon(
+              isDoneSection ? "check-circle" : isActive ? "checkmark" : "",
+            )
             //@ts-ignore internal method
             .setSubmenu((submenu: Menu) => {
               // Add parent as first option in submenu
@@ -979,9 +1041,12 @@ export class CalendarView extends TextFileView {
               children.sort((a, b) => a.startLine - b.startLine);
               children.forEach((child) => {
                 const isChildActive = this.activeSectionId === child.id;
+                const isChildDone =
+                  child.name === this.plugin.settings.completedSectionName;
                 submenu.addItem((subItem) => {
                   subItem
                     .setTitle(child.name)
+                    .setIcon(isChildDone ? "check-circle" : "")
                     .setChecked(isChildActive)
                     .onClick(() => {
                       this.activeSectionId = child.id;
@@ -997,6 +1062,7 @@ export class CalendarView extends TextFileView {
         menu.addItem((item) => {
           item
             .setTitle(section.name)
+            .setIcon(isDoneSection ? "check-circle" : "")
             .setChecked(isActive)
             .onClick(() => {
               this.activeSectionId = section.id;
@@ -1109,7 +1175,7 @@ export class CalendarView extends TextFileView {
     // Call default render for the rest of the content
     ctx.defaultRender();
     this.eventElementMap.set(ctx.event.id, ctx.el);
-    ctx.el.addEventListener("pointerdown", () => {
+    this.registerDomEvent(ctx.el, "pointerdown", () => {
       this.eventElementMap.set(ctx.event.id, ctx.el);
     });
 
@@ -1130,7 +1196,7 @@ export class CalendarView extends TextFileView {
       }
 
       // Prevent checkbox click from bubbling to event click handler
-      checkbox.addEventListener("click", (e) => {
+      this.registerDomEvent(checkbox, "click", (e) => {
         e.stopPropagation();
         this.handleCheckboxClick(task);
       });
@@ -1399,8 +1465,18 @@ export class CalendarView extends TextFileView {
 
     this.eventElementMap.clear();
 
-    const activeSection = this.sections.get(this.activeSectionId);
-    const tasksToShow = activeSection?.tasks ?? [];
+    // Determine which tasks to show based on active section
+    let tasksToShow: TaskLine[];
+    if (this.activeSectionId === ALL_SECTIONS_ID) {
+      // Collect all tasks from all sections
+      tasksToShow = [];
+      this.sections.forEach((section) => {
+        tasksToShow.push(...section.tasks);
+      });
+    } else {
+      const activeSection = this.sections.get(this.activeSectionId);
+      tasksToShow = activeSection?.tasks ?? [];
+    }
 
     const events: CalendarEvent[] = tasksToShow.map((task) => {
       // Determine start and end times
@@ -1485,9 +1561,7 @@ export class CalendarView extends TextFileView {
         title: task.title,
         start: startStr,
         end: endStr,
-        color: task.completed
-          ? "var(--text-muted)"
-          : "var(--interactive-accent)",
+        color: this.getTaskColor(task),
         metadata: {
           lineIndex: task.lineIndex,
           completed: task.completed,
@@ -1498,6 +1572,43 @@ export class CalendarView extends TextFileView {
     });
 
     this.calendar.setEvents(events);
+  }
+
+  /**
+   * Gets the color for a task based on color rules and settings
+   */
+  private getTaskColor(task: TaskLine): string {
+    if (!this.file) {
+      return task.completed ? "var(--text-muted)" : "var(--interactive-accent)";
+    }
+
+    // Determine if dark mode is active
+    const isDarkMode = document.body.classList.contains("theme-dark");
+
+    // Convert sections map to format expected by ColorService
+    const sectionsForColor = new Map<string, { id: string; name: string }>();
+    this.sections.forEach((section, id) => {
+      sectionsForColor.set(id, { id: section.id, name: section.name });
+    });
+
+    // Get color from service
+    const isAllSectionsView = this.activeSectionId === ALL_SECTIONS_ID;
+    return ColorService.getEventColor(
+      {
+        title: task.title,
+        markdown: task.markdown,
+        date: task.date,
+        dateType: task.dateType,
+        allDates: task.allDates,
+        completed: task.completed,
+        sectionId: task.sectionId,
+      },
+      this.file.path,
+      sectionsForColor,
+      this.plugin.settings,
+      isDarkMode,
+      isAllSectionsView,
+    );
   }
 
   /**
@@ -1649,9 +1760,8 @@ export class CalendarView extends TextFileView {
       jsEvent?.currentTarget instanceof HTMLElement
         ? jsEvent.currentTarget
         : null;
-    const anchorEl = anchorElFromEvent ??
-      this.eventElementMap.get(event.id) ??
-      null;
+    const anchorEl =
+      anchorElFromEvent ?? this.eventElementMap.get(event.id) ?? null;
     const anchorPosition =
       anchorEl !== null
         ? (() => {
@@ -1664,10 +1774,8 @@ export class CalendarView extends TextFileView {
         : null;
 
     // Determine click position (fallback to event anchor or center of screen if unavailable)
-    const position =
-      clickPosition ??
-      anchorPosition ??
-      { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    const position = clickPosition ??
+      anchorPosition ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 
     // Open new popover
     this.activePopover = new TaskPopover(

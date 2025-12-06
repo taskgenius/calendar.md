@@ -1253,6 +1253,365 @@
 }
 
 /* ============================================
+   Color Configuration UI Styles
+   ============================================ */
+
+/* Color picker group - dual light/dark pickers */
+.calendar-color-picker-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  margin-left: var(--size-4-2);
+}
+
+.calendar-color-label {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  min-width: 32px;
+}
+
+/* Color rules list container */
+.calendar-color-rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-3);
+  padding: var(--size-4-2);
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-m);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.calendar-rules-empty {
+  padding: var(--size-4-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  font-style: italic;
+}
+
+/* Individual rule item */
+.calendar-color-rule-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  padding: var(--size-4-3);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    border-color: var(--background-modifier-border-hover);
+    box-shadow: var(--shadow-s);
+  }
+}
+
+/* Rule header row */
+.calendar-rule-header {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
+.calendar-rule-toggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+
+  input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.calendar-rule-name-input {
+  flex: 1;
+  padding: var(--size-2-2) var(--size-4-2);
+  background-color: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-medium);
+  transition: border-color 0.15s ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--background-modifier-border-focus);
+  }
+}
+
+.calendar-rule-actions {
+  display: flex;
+  gap: var(--size-2-2);
+}
+
+.calendar-rule-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+  }
+
+  &.calendar-rule-btn-danger:hover {
+    background-color: var(--background-modifier-error);
+    color: var(--text-error);
+  }
+}
+
+/* Rule condition row */
+.calendar-rule-condition {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  flex-wrap: wrap;
+}
+
+.calendar-rule-type-select {
+  min-width: 140px;
+  box-shadow: unset;
+  padding: var(--size-2-2) var(--size-4-2);
+  background-color: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: var(--background-modifier-border-focus);
+  }
+}
+
+.calendar-rule-value-input {
+  flex: 1;
+  min-width: 120px;
+  padding: var(--size-2-2) var(--size-4-2);
+  background-color: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+
+  &:focus {
+    outline: none;
+    border-color: var(--background-modifier-border-focus);
+  }
+
+  &::placeholder {
+    color: var(--text-faint);
+  }
+}
+
+/* Rule colors row */
+.calendar-rule-colors {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-4);
+  padding-top: var(--size-2-2);
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+/* ============================================
+   Calendar Config Modal (Per-file settings)
+   ============================================ */
+
+.calendar-config-modal {
+  .modal-content {
+    padding: var(--size-4-4);
+  }
+}
+
+.calendar-config-section {
+  margin-bottom: var(--size-4-6);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.calendar-config-section-title {
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+  margin-bottom: var(--size-4-3);
+  padding-bottom: var(--size-2-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.calendar-config-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-3);
+  margin-bottom: var(--size-4-2);
+}
+
+.calendar-config-label {
+  min-width: 100px;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+
+.calendar-config-colors {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-4);
+}
+
+.calendar-config-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-4);
+  padding-top: var(--size-4-3);
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+/* File-specific rules in modal */
+.calendar-file-rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-2);
+}
+
+.calendar-file-rules-empty {
+  padding: var(--size-4-3);
+  text-align: center;
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-s);
+}
+
+/* ============================================
+   Section Colors Configuration
+   ============================================ */
+
+.calendar-section-colors-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+  margin-top: var(--size-4-2);
+}
+
+.calendar-section-color-item {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  transition: border-color 0.15s ease;
+
+  &:hover {
+    border-color: var(--background-modifier-border-hover);
+  }
+}
+
+.calendar-section-color-preview {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-s);
+  flex-shrink: 0;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.calendar-section-color-name {
+  flex: 1;
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-section-color-pickers {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+}
+
+.calendar-section-color-add {
+  padding: var(--size-2-2) var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: var(--text-normal);
+    border-color: var(--interactive-accent);
+    background-color: var(--background-modifier-hover);
+  }
+}
+
+.calendar-section-color-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: var(--background-modifier-error);
+    color: var(--text-error);
+  }
+}
+
+/* Config modal color row */
+.calendar-config-color-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-4);
+  margin-top: var(--size-4-2);
+  padding: var(--size-4-2);
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-s);
+}
+
+.calendar-config-subtitle {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  margin-top: -8px;
+  margin-bottom: var(--size-4-3);
+}
+
+.calendar-config-buttons {
+  margin-top: var(--size-4-4);
+  padding-top: var(--size-4-3);
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+/* ============================================
    Empty State (Initial Calendar Setup)
    ============================================ */
 

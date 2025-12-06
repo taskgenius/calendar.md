@@ -10,6 +10,7 @@
     "lint": "eslint ./src/**/*.ts",
     "lint:fix": "eslint ./src/**/*.ts --fix",
     "prettier": "prettier --write \"./src/**/*.ts\"",
+    "version": "node version-bump.mjs",
     "prepare": "husky",
     "release": "release-it",
     "release:patch": "release-it patch",
